@@ -3,6 +3,56 @@ import { expect, test } from "@playwright/test";
 import { signIn, uniqueEmail, uniqueSlug } from "./helpers";
 
 test.describe("provider onboarding journey", () => {
+  test("'List your machines' routes a new account through the type picker", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("link", { name: "List your machines" }).first().click();
+    await page.waitForURL(/\/signin\?intent=provider/);
+
+    await page.getByLabel("Development sign-in").fill(uniqueEmail("intent"));
+    await page.getByRole("button", { name: /sign in without google/i }).click();
+
+    // A brand-new account must land on the account-type picker rather than
+    // being silently defaulted to a makerspace.
+    await page.waitForURL(/\/onboarding/, { timeout: 30_000 });
+    await expect(page.getByRole("heading", { name: /how will you use maker network/i })).toBeVisible();
+
+    await page.getByRole("button", { name: "Set up my profile" }).click();
+    await page.waitForURL(/\/dashboard/, { timeout: 30_000 });
+
+    // Choosing "I own machines" must open the individual-maker form.
+    await page.goto("/dashboard/profile");
+    await expect(page.getByText("Offers shipping")).toBeVisible();
+    await expect(page.getByText("Offers local pickup")).toBeVisible();
+    await expect(page.getByText("Requires a library card")).toHaveCount(0);
+  });
+
+  test("an un-onboarded account is redirected out of the dashboard", async ({ page }) => {
+    await signIn(page, uniqueEmail("unonboarded"));
+    await page.goto("/dashboard/machines");
+    await page.waitForURL(/\/onboarding/, { timeout: 30_000 });
+  });
+
+  test("a makerspace account gets the access-rules form", async ({ page }) => {
+    await signIn(page, uniqueEmail("space"));
+    await page.goto("/onboarding");
+    await page.getByRole("button", { name: "Set up our space" }).click();
+    await page.waitForURL(/\/dashboard/, { timeout: 30_000 });
+
+    await page.goto("/dashboard/profile");
+    await expect(page.getByText("Requires a library card")).toBeVisible();
+    await expect(page.getByText("Offers shipping")).toHaveCount(0);
+  });
+
+  test("an existing maker can change their provider type", async ({ page }) => {
+    await signIn(page, "ada@example.com");
+    await page.goto("/dashboard/profile");
+
+    // The type select must stay editable after creation.
+    const select = page.getByLabel(/what kind of provider are you/i);
+    await expect(select).toBeEnabled();
+    await expect(page.getByText(/cannot be changed after creation/i)).toHaveCount(0);
+  });
+
   test("a new maker can onboard, list a machine and material, publish, and be found", async ({
     page,
   }) => {

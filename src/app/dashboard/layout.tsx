@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { redirect } from "next/navigation";
 
 import { requireSessionUser } from "@/lib/session";
 import { getOwnProfile } from "@/lib/services/profiles";
@@ -8,6 +9,13 @@ import { Badge } from "@/components/ui";
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
   const user = await requireSessionUser("/dashboard");
   const profile = await getOwnProfile(user.id);
+
+  // A brand-new account has not chosen what kind of provider it is yet. Send it
+  // to the picker first so the profile editor opens on the right form, rather
+  // than silently defaulting them to a makerspace.
+  if (!profile && !user.onboarded) {
+    redirect("/onboarding");
+  }
 
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">

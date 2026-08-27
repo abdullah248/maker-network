@@ -187,11 +187,18 @@ export function ProfileForm({
 
       <Card className="space-y-4">
         <h3 className="text-lg font-semibold text-ink">Provider type</h3>
-        <Field label="What kind of provider are you?" htmlFor="type">
+        <Field
+          label="What kind of provider are you?"
+          htmlFor="type"
+          hint={
+            values.type === "MAKERSPACE"
+              ? "Makerspaces list opening hours and access rules such as memberships or library cards."
+              : "Individual makers list fulfilment options such as shipping and local pickup."
+          }
+        >
           <Select
             id="type"
             value={values.type}
-            disabled={!isNew}
             onChange={(e) => set("type", e.target.value as ProfileType)}
           >
             {PROFILE_TYPES.map((type) => (
@@ -201,8 +208,10 @@ export function ProfileForm({
             ))}
           </Select>
         </Field>
-        {!isNew ? (
-          <p className="text-xs text-ink-muted">Provider type cannot be changed after creation.</p>
+        {!isNew && values.type !== initial.type ? (
+          <p className="text-xs text-ember-700">
+            Switching provider type clears the fields that only apply to your previous type.
+          </p>
         ) : null}
       </Card>
 

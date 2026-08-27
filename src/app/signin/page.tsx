@@ -22,9 +22,11 @@ export default async function SignInPage({
   searchParams: Promise<RawSearchParams>;
 }) {
   const sp = await searchParams;
-  const callbackUrl = safeCallbackUrl(sp.callbackUrl);
   const intentRaw = Array.isArray(sp.intent) ? sp.intent[0] : sp.intent;
   const isProvider = intentRaw === "provider";
+  // Someone arriving via "List your machines" should land on the account-type
+  // picker, not a generic dashboard.
+  const callbackUrl = safeCallbackUrl(sp.callbackUrl, isProvider ? "/onboarding" : "/dashboard");
 
   const user = await getSessionUser();
   if (user) redirect(callbackUrl);
