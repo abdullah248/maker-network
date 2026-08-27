@@ -1,7 +1,7 @@
 import type { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
-import { LIMITS } from "@/lib/constants";
+import { FULFILLMENT_LABELS, LIMITS, type Fulfillment } from "@/lib/constants";
 import {
   ForbiddenError,
   NotFoundError,
@@ -266,9 +266,9 @@ export async function createPrintRequest(userId: string | null | undefined, inpu
     parsed.data.description,
     "",
     `Quantity: ${parsed.data.quantity}`,
-    `Fulfilment: ${parsed.data.fulfillment}`,
+    `Fulfilment: ${FULFILLMENT_LABELS[parsed.data.fulfillment as Fulfillment]}`,
     parsed.data.deadline ? `Needed by: ${parsed.data.deadline.toISOString().slice(0, 10)}` : null,
-    parsed.data.budget !== undefined ? `Budget: ${parsed.data.budget.toFixed(2)}` : null,
+    parsed.data.budget !== undefined ? `Budget: $${parsed.data.budget.toFixed(2)}` : null,
     parsed.data.fileUrl ? `Files: ${parsed.data.fileUrl}` : null,
   ]
     .filter(Boolean)

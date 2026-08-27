@@ -51,7 +51,7 @@ export default async function BrowsePage({
         <h1 className="text-3xl font-semibold tracking-tight text-ink">Browse makers</h1>
         <p className="mt-1 text-ink-muted">
           {result.total > 0
-            ? `${result.total} maker${result.total === 1 ? "" : "s"} match your search.`
+            ? `${result.total} maker${result.total === 1 ? " matches" : "s match"} your search.`
             : "Adjust your filters to find makers near you."}
         </p>
       </header>
