@@ -1,0 +1,9 @@
+# Default owner for everything in this repository.
+*                       @abdullah248
+
+# Extra scrutiny on the security-sensitive surfaces.
+/prisma/                @abdullah248
+/src/lib/auth.ts        @abdullah248
+/src/lib/validation.ts  @abdullah248
+/src/lib/services/      @abdullah248
+/.github/workflows/     @abdullah248

@@ -165,7 +165,14 @@ export function Field({
     <div className={cn("space-y-1.5", className)}>
       <label htmlFor={htmlFor} className="block text-sm font-medium text-ink">
         {label}
-        {required ? <span className="ml-1 text-ember-600">*</span> : null}
+        {required ? (
+          // Hidden from the accessibility tree so screen readers announce
+          // "Name" rather than "Name star"; the control itself carries the
+          // required semantics.
+          <span aria-hidden="true" className="ml-1 text-ember-600">
+            *
+          </span>
+        ) : null}
       </label>
       {children}
       {error ? (

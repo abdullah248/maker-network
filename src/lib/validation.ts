@@ -15,7 +15,7 @@ import {
 /** Collapses whitespace and strips control characters from user input. */
 export function sanitizeText(value: string): string {
   return value
-    // eslint-disable-next-line no-control-regex
+     
     .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "")
     .trim();
 }
@@ -92,9 +92,10 @@ const optionalMoney = z.preprocess(
   z.coerce.number().min(0, "Price cannot be negative.").max(1_000_000).optional(),
 );
 
-const checkbox = z
-  .union([z.boolean(), z.string(), z.undefined(), z.null()])
-  .transform((value) => value === true || value === "true" || value === "on" || value === "1");
+const checkbox = z.preprocess(
+  (value) => value === true || value === "true" || value === "on" || value === "1",
+  z.boolean(),
+);
 
 export const RESERVED_SLUGS = new Set([
   "admin",

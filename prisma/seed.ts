@@ -1,4 +1,4 @@
-/* eslint-disable no-console */
+ 
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
@@ -313,6 +313,30 @@ async function main() {
 
   const customer = await prisma.user.create({
     data: { name: "Jamie Rivera", email: "jamie@example.com", accountType: "CUSTOMER", onboardedAt: new Date() },
+  });
+
+  // An intentionally unpublished profile, used to verify draft visibility rules.
+  const draftUser = await prisma.user.create({
+    data: {
+      name: "Quiet Workshop",
+      email: "draft@example.com",
+      accountType: "INDIVIDUAL",
+      onboardedAt: new Date(),
+    },
+  });
+  await prisma.profile.create({
+    data: {
+      userId: draftUser.id,
+      type: "INDIVIDUAL",
+      slug: "secret-draft-profile",
+      displayName: "Quiet Workshop (draft)",
+      headline: "Not published yet",
+      city: "Austin",
+      region: "TX",
+      country: "US",
+      published: false,
+      offersLocalPickup: true,
+    },
   });
 
   const conversation = await prisma.conversation.create({
