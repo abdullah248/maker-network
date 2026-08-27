@@ -1,0 +1,73 @@
+@import "tailwindcss";
+
+/*
+ * Maker Network design tokens.
+ * Warm "workshop" palette: paper canvas, ember accent, blueprint blue.
+ */
+@theme {
+  --color-canvas: #fbfaf7;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f3f1ec;
+  --color-ink: #14161a;
+  --color-ink-muted: #5b6270;
+  --color-line: #e3e0d8;
+
+  --color-ember-50: #fff4ed;
+  --color-ember-100: #ffe4d1;
+  --color-ember-200: #ffc4a3;
+  --color-ember-400: #ff8f4d;
+  --color-ember-500: #f26c1b;
+  --color-ember-600: #d4530a;
+  --color-ember-700: #a93f08;
+
+  --color-blueprint-50: #eef4ff;
+  --color-blueprint-100: #d9e6ff;
+  --color-blueprint-500: #2f6fed;
+  --color-blueprint-600: #1f55c4;
+  --color-blueprint-700: #17409a;
+
+  --color-moss-100: #dcf3e4;
+  --color-moss-600: #1f7a45;
+
+  --color-clay-100: #f6e6df;
+  --color-clay-600: #9a5b3f;
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+:root {
+  color-scheme: light;
+}
+
+@layer base {
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-blueprint-500);
+    outline-offset: 2px;
+  }
+}
+
+@layer utilities {
+  /* Subtle blueprint grid used behind hero sections. */
+  .bg-grid {
+    background-image:
+      linear-gradient(to right, rgba(20, 22, 26, 0.045) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(20, 22, 26, 0.045) 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+}
