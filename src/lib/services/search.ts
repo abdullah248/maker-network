@@ -21,8 +21,11 @@ export type DirectoryCard = Prisma.ProfileGetPayload<{
     requiresMembership: true;
     requiresLibraryCard: true;
     acceptingRequests: true;
+    ratingAverage: true;
+    ratingCount: true;
     machines: { select: { id: true; category: true; make: true; model: true } };
     materials: { select: { id: true; category: true; name: true; pricePerUnit: true; unit: true } };
+    portfolio: { select: { id: true; imageUrl: true; title: true; altText: true } };
   };
 }>;
 
@@ -51,9 +54,16 @@ const CARD_SELECT = {
   requiresMembership: true,
   requiresLibraryCard: true,
   acceptingRequests: true,
+  ratingAverage: true,
+  ratingCount: true,
   machines: { select: { id: true, category: true, make: true, model: true } },
   materials: {
     select: { id: true, category: true, name: true, pricePerUnit: true, unit: true },
+  },
+  portfolio: {
+    select: { id: true, imageUrl: true, title: true, altText: true },
+    orderBy: [{ featured: "desc" }, { sortOrder: "asc" }],
+    take: 3,
   },
 } satisfies Prisma.ProfileSelect;
 
@@ -91,6 +101,7 @@ export async function searchProfiles(params: SearchParams): Promise<DirectoryRes
   if (params.shipping) and.push({ offersShipping: true });
   if (params.acceptingOnly) and.push({ acceptingRequests: true });
   if (params.category) and.push({ machines: { some: { category: params.category } } });
+  if (params.minRating) and.push({ ratingAverage: { gte: params.minRating } });
   if (params.material) and.push({ materials: { some: { category: params.material } } });
 
   if (params.q) {
@@ -114,7 +125,10 @@ export async function searchProfiles(params: SearchParams): Promise<DirectoryRes
     prisma.profile.findMany({
       where,
       select: CARD_SELECT,
-      orderBy: [{ acceptingRequests: "desc" }, { updatedAt: "desc" }],
+      orderBy:
+        params.sort === "rating"
+          ? [{ ratingAverage: "desc" }, { ratingCount: "desc" }, { updatedAt: "desc" }]
+          : [{ acceptingRequests: "desc" }, { updatedAt: "desc" }],
       skip: (params.page - 1) * params.perPage,
       take: params.perPage,
     }),
@@ -142,10 +156,11 @@ export async function popularCities(limit = 12) {
 }
 
 export async function directoryStats() {
-  const [profiles, machines, materials] = await Promise.all([
+  const [profiles, machines, materials, projects] = await Promise.all([
     prisma.profile.count({ where: { published: true } }),
     prisma.machine.count({ where: { profile: { published: true } } }),
     prisma.material.count({ where: { profile: { published: true }, inStock: true } }),
+    prisma.portfolioItem.count({ where: { profile: { published: true } } }),
   ]);
-  return { profiles, machines, materials };
+  return { profiles, machines, materials, projects };
 }

@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { Badge, Card } from "@/components/ui";
+import { StarRating } from "@/components/star-rating";
 import { formatLocation, formatPrice, initials } from "@/lib/format";
 import {
   MACHINE_CATEGORY_LABELS,
@@ -62,6 +63,15 @@ export function ProfileCard({ profile }: { profile: DirectoryCard }) {
             <PinIcon className="h-3.5 w-3.5" />
             {formatLocation(profile)}
           </p>
+          {profile.ratingCount > 0 ? (
+            <div className="mt-1.5">
+              <StarRating
+                value={profile.ratingAverage}
+                count={profile.ratingCount}
+                size="sm"
+              />
+            </div>
+          ) : null}
         </div>
       </div>
 

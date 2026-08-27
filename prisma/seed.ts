@@ -21,6 +21,8 @@ async function main() {
   console.log("Seeding Maker Network demo data…");
 
   // Clear demo rows so the seed is idempotent.
+  await prisma.review.deleteMany();
+  await prisma.portfolioItem.deleteMany();
   await prisma.message.deleteMany();
   await prisma.printRequest.deleteMany();
   await prisma.conversation.deleteMany();
@@ -372,8 +374,141 @@ async function main() {
     },
   });
 
+  // ---------------------------------------------------------------------
+  // Project gallery
+  // ---------------------------------------------------------------------
+
+  const adaMachines = await prisma.machine.findMany({ where: { profileId: ada.id } });
+  const adaX1 = adaMachines.find((machine) => machine.model === "X1 Carbon");
+
+  await prisma.portfolioItem.createMany({
+    data: [
+      {
+        profileId: ada.id,
+        machineId: adaX1?.id ?? null,
+        title: "Articulated dragon, multi-colour",
+        description:
+          "Printed in one piece with a four-colour AMS swap. No supports, roughly nine hours on the X1C.",
+        imageUrl: "https://picsum.photos/seed/articulated-dragon/1200/800",
+        altText: "A multi-coloured articulated 3D printed dragon on a workbench",
+        materialUsed: "Bambu Lab PLA",
+        featured: true,
+        sortOrder: 0,
+      },
+      {
+        profileId: ada.id,
+        machineId: adaX1?.id ?? null,
+        title: "Replacement gear for a coffee grinder",
+        description: "Reverse-engineered from a broken original. PETG for heat resistance.",
+        imageUrl: "https://images.unsplash.com/photo-1611117775350-ac3950990985?w=1200&q=80",
+        altText: "A small 3D printed replacement gear held between two fingers",
+        materialUsed: "Overture PETG",
+        sortOrder: 1,
+      },
+      {
+        profileId: ada.id,
+        title: "Cosplay pauldron shells",
+        description: "Two-part shells, sanded and primed, ready for painting.",
+        imageUrl: "https://images.unsplash.com/photo-1608889175123-8ee362201f81?w=1200&q=80",
+        altText: "Two large 3D printed armour shells drying on a bench",
+        materialUsed: "PLA+",
+        sortOrder: 2,
+      },
+    ],
+  });
+
+  await prisma.portfolioItem.createMany({
+    data: [
+      {
+        profileId: library.id,
+        title: "Community sign for the reading garden",
+        description:
+          "Cut and engraved on the Epilog by a teen volunteer group during a Saturday workshop.",
+        imageUrl: "https://images.unsplash.com/photo-1516131206008-dd041a9764fd?w=1200&q=80",
+        altText: "A laser engraved wooden sign mounted on a garden fence",
+        materialUsed: "Baltic birch plywood",
+        featured: true,
+        sortOrder: 0,
+      },
+      {
+        profileId: library.id,
+        title: "Braille labels for the shelving",
+        description: "Printed on the Prusa farm and fitted across the non-fiction stacks.",
+        imageUrl: "https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?w=1200&q=80",
+        altText: "Small 3D printed shelf labels with raised braille dots",
+        materialUsed: "Prusament PLA",
+        sortOrder: 1,
+      },
+    ],
+  });
+
+  // ---------------------------------------------------------------------
+  // Reviews
+  // ---------------------------------------------------------------------
+
+  const reviewers = await Promise.all(
+    [
+      { name: "Priya Raman", email: "priya@example.com" },
+      { name: "Tom Alvarez", email: "tom@example.com" },
+      { name: "Nadia Hassan", email: "nadia@example.com" },
+    ].map((data) => prisma.user.create({ data: { ...data, accountType: "CUSTOMER" } })),
+  );
+
+  await prisma.review.createMany({
+    data: [
+      {
+        profileId: ada.id,
+        authorId: reviewers[0].id,
+        rating: 5,
+        title: "Rescued a project on a deadline",
+        body: "Ada turned a rough sketch into a printed part in two days and shipped it the same week. Communication was excellent throughout.",
+        verified: true,
+      },
+      {
+        profileId: ada.id,
+        authorId: reviewers[1].id,
+        rating: 4,
+        title: "Great quality, slight delay",
+        body: "The print quality was better than I expected for the price. It arrived a couple of days later than estimated, but Ada kept me updated the whole time.",
+        providerResponse:
+          "Thanks Tom — that was my filament order running late. Glad the part worked out!",
+        providerRespondedAt: new Date(),
+      },
+      {
+        profileId: library.id,
+        authorId: reviewers[2].id,
+        rating: 5,
+        title: "Free, friendly and genuinely accessible",
+        body: "Booked the laser cutter with nothing but a library card. The staff walked me through the safety orientation and helped me fix my file. Materials are sold at cost.",
+        verified: true,
+      },
+      {
+        profileId: library.id,
+        authorId: reviewers[0].id,
+        rating: 4,
+        body: "Great equipment and helpful staff. Booking can fill up fast on weekends, so plan ahead.",
+      },
+    ],
+  });
+
+  // Keep the denormalised aggregates consistent with the seeded reviews.
+  for (const profileId of [ada.id, library.id]) {
+    const aggregate = await prisma.review.aggregate({
+      where: { profileId },
+      _avg: { rating: true },
+      _count: { rating: true },
+    });
+    await prisma.profile.update({
+      where: { id: profileId },
+      data: {
+        ratingAverage: Math.round((aggregate._avg.rating ?? 0) * 100) / 100,
+        ratingCount: aggregate._count.rating,
+      },
+    });
+  }
+
   console.log(
-    `Seed complete: ${await prisma.profile.count()} profiles, ${await prisma.machine.count()} machines, ${await prisma.material.count()} materials, conversation ${conversation.id}.`,
+    `Seed complete: ${await prisma.profile.count()} profiles, ${await prisma.machine.count()} machines, ${await prisma.material.count()} materials, ${await prisma.portfolioItem.count()} projects, ${await prisma.review.count()} reviews, conversation ${conversation.id}.`,
   );
 }
 

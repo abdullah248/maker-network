@@ -51,12 +51,14 @@ export default async function DashboardOverviewPage() {
   ]);
 
   const openUpcomingSlots = slots.filter((slot) => slot.status === "OPEN").length;
+  const projectCount = profile.portfolio.length;
   const recentConversations = conversations.slice(0, 5);
 
   const checklist = [
     { label: "Profile created", done: true, href: "/dashboard/profile" },
     { label: "At least one machine", done: machines.length > 0, href: "/dashboard/machines" },
     { label: "At least one material", done: materials.length > 0, href: "/dashboard/materials" },
+    { label: "Add project photos", done: projectCount > 0, href: "/dashboard/gallery" },
     { label: "Operating hours set", done: hours.length > 0, href: "/dashboard/hours" },
     { label: "Profile published", done: profile.published, href: "/dashboard/profile" },
   ];
@@ -65,8 +67,15 @@ export default async function DashboardOverviewPage() {
   const stats = [
     { label: "Machines", value: machines.length, href: "/dashboard/machines" },
     { label: "Materials", value: materials.length, href: "/dashboard/materials" },
+    { label: "Projects", value: projectCount, href: "/dashboard/gallery" },
     { label: "Upcoming open slots", value: openUpcomingSlots, href: "/dashboard/availability" },
     { label: "Unread messages", value: unread, href: "/messages" },
+    {
+      label: "Avg. rating",
+      value: profile.ratingCount > 0 ? profile.ratingAverage.toFixed(1) : "—",
+      href: "/dashboard/reviews",
+    },
+    { label: "Reviews", value: profile.ratingCount, href: "/dashboard/reviews" },
   ];
 
   return (

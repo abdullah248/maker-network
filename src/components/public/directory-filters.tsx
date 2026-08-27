@@ -66,6 +66,26 @@ export function DirectoryFilters({ params }: { params: SearchParams }) {
         />
       </Field>
 
+      <Field label="Minimum rating" htmlFor="minRating">
+        <Select
+          id="minRating"
+          name="minRating"
+          defaultValue={params.minRating ? String(params.minRating) : ""}
+        >
+          <option value="">Any rating</option>
+          <option value="3">3+ stars</option>
+          <option value="4">4+ stars</option>
+          <option value="4.5">4.5+ stars</option>
+        </Select>
+      </Field>
+
+      <Field label="Sort by" htmlFor="sort">
+        <Select id="sort" name="sort" defaultValue={params.sort ?? "recent"}>
+          <option value="recent">Most recent</option>
+          <option value="rating">Highest rated</option>
+        </Select>
+      </Field>
+
       <div className="space-y-2">
         <Checkbox
           name="shipping"

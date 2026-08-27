@@ -16,6 +16,8 @@ const PRIMARY: NavItem[] = [
   { href: "/dashboard/profile", label: "Public profile" },
   { href: "/dashboard/machines", label: "Machines" },
   { href: "/dashboard/materials", label: "Materials" },
+  { href: "/dashboard/reviews", label: "Reviews" },
+  { href: "/dashboard/gallery", label: "Gallery" },
   { href: "/dashboard/hours", label: "Hours" },
   { href: "/dashboard/availability", label: "Availability" },
 ];

@@ -15,6 +15,10 @@ const PUBLIC_PROFILE_INCLUDE = {
   machines: { orderBy: { createdAt: "asc" } },
   materials: { orderBy: { name: "asc" } },
   operatingHours: { orderBy: { dayOfWeek: "asc" } },
+  portfolio: {
+    orderBy: [{ featured: "desc" }, { sortOrder: "asc" }, { createdAt: "desc" }],
+    include: { machine: { select: { id: true, make: true, model: true, category: true } } },
+  },
   user: { select: { id: true, name: true, image: true } },
 } satisfies Prisma.ProfileInclude;
 

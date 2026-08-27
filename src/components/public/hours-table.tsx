@@ -9,6 +9,17 @@ export function HoursTable({ hours }: { hours: Hours[] }) {
   const byDay = new Map<number, Hours>();
   for (const entry of hours) byDay.set(entry.dayOfWeek, entry);
 
+  // A maker who has not published a schedule is not "closed all week" — say so
+  // explicitly rather than showing seven misleading Closed rows.
+  if (hours.length === 0) {
+    return (
+      <p className="text-sm text-ink-muted">
+        This maker hasn&apos;t published set opening hours. Send a request to agree on timing
+        directly.
+      </p>
+    );
+  }
+
   return (
     <table className="w-full text-sm">
       <caption className="sr-only">Weekly operating hours</caption>

@@ -352,8 +352,91 @@ export const searchParamsSchema = z.object({
   city: optionalTrimmed(80),
   shipping: z.coerce.boolean().optional(),
   acceptingOnly: z.coerce.boolean().optional(),
+  minRating: z.coerce.number().min(1).max(5).optional(),
+  sort: z.enum(["recent", "rating"]).default("recent"),
   page: z.coerce.number().int().min(1).max(500).default(1),
   perPage: z.coerce.number().int().min(1).max(48).default(12),
 });
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
+
+// ---------------------------------------------------------------------------
+// Project gallery
+// ---------------------------------------------------------------------------
+
+/**
+ * Images are referenced by URL rather than uploaded, so the URL is validated
+ * as strictly as any other user-supplied link: http(s) only, no javascript:
+ * or data: payloads.
+ */
+export const portfolioItemSchema = z
+  .object({
+    title: trimmed(LIMITS.portfolioTitle),
+    description: optionalTrimmed(LIMITS.portfolioDescription),
+    imageUrl: z.preprocess(
+      (value) => blankToUndefined(value),
+      z
+        .string()
+        .max(2048)
+        .refine(
+          (value) => {
+            try {
+              const parsed = new URL(value);
+              return parsed.protocol === "http:" || parsed.protocol === "https:";
+            } catch {
+              return false;
+            }
+          },
+          { message: "Enter a valid http(s) image URL." },
+        ),
+    ),
+    altText: optionalTrimmed(200),
+    machineId: optionalTrimmed(40),
+    materialUsed: optionalTrimmed(120),
+    featured: checkbox,
+    sortOrder: z.coerce.number().int().min(0).max(9999).default(0),
+  })
+  .strict();
+
+export type PortfolioItemInput = z.infer<typeof portfolioItemSchema>;
+
+// ---------------------------------------------------------------------------
+// Reviews
+// ---------------------------------------------------------------------------
+
+export const reviewSchema = z
+  .object({
+    profileSlug: z
+      .string()
+      .transform((value) => sanitizeText(value).toLowerCase())
+      .pipe(z.string().min(1).max(LIMITS.slug)),
+    rating: z.coerce
+      .number()
+      .int("Ratings are whole stars from 1 to 5.")
+      .min(1, "Choose at least one star.")
+      .max(5, "Ratings go up to five stars."),
+    title: optionalTrimmed(120),
+    body: z
+      .string()
+      .transform(sanitizeText)
+      .pipe(
+        z
+          .string()
+          .min(10, "Tell people a little more — at least 10 characters.")
+          .max(LIMITS.reviewBody),
+      ),
+  })
+  .strict();
+
+export type ReviewInput = z.infer<typeof reviewSchema>;
+
+export const reviewUpdateSchema = reviewSchema.omit({ profileSlug: true });
+
+export const reviewResponseSchema = z
+  .object({
+    body: z
+      .string()
+      .transform(sanitizeText)
+      .pipe(z.string().min(1, "Write a reply before posting.").max(LIMITS.reviewBody)),
+  })
+  .strict();

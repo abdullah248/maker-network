@@ -128,7 +128,23 @@ export const LIMITS = {
   messageBody: 5000,
   notes: 2000,
   slug: 60,
+  portfolioTitle: 120,
+  portfolioDescription: 1000,
+  reviewBody: 4000,
+  /** Max gallery images a single profile may publish. */
+  portfolioMax: 48,
   /** Max messages a single user may send in MESSAGE_RATE_WINDOW_MS. */
   messageRateMax: 20,
   messageRateWindowMs: 60_000,
 } as const;
+
+export const RATING_VALUES = [1, 2, 3, 4, 5] as const;
+export type RatingValue = (typeof RATING_VALUES)[number];
+
+export const RATING_LABELS: Record<RatingValue, string> = {
+  1: "Poor",
+  2: "Fair",
+  3: "Good",
+  4: "Great",
+  5: "Excellent",
+};

@@ -4,9 +4,12 @@ import { notFound } from "next/navigation";
 
 import { Alert, Badge, buttonClass, Card, SectionHeading } from "@/components/ui";
 import { AvailabilityCalendar } from "@/components/public/availability-calendar";
+import { ReviewsSection } from "@/components/public/reviews-section";
+import { StarRating } from "@/components/star-rating";
 import { HoursTable } from "@/components/public/hours-table";
 import { MachineList } from "@/components/public/machine-list";
 import { MaterialTable } from "@/components/public/material-table";
+import { ProjectGallery } from "@/components/public/project-gallery";
 import { PinIcon } from "@/components/public/icons";
 import { formatLocation, initials } from "@/lib/format";
 import { PROFILE_TYPE_LABELS, type ProfileType } from "@/lib/constants";
@@ -111,6 +114,7 @@ export default async function ProfilePage({ params }: { params: Params }) {
               <Badge tone={isMakerspace ? "blueprint" : "ember"}>
                 {PROFILE_TYPE_LABELS[type]}
               </Badge>
+              <StarRating value={profile.ratingAverage} count={profile.ratingCount} />
             </div>
             {profile.headline ? (
               <p className="mt-1 max-w-xl text-ink-muted">{profile.headline}</p>
@@ -168,6 +172,20 @@ export default async function ProfilePage({ params }: { params: Params }) {
       ) : null}
 
       <div className="mt-10 space-y-10">
+        {/* Recent work */}
+        {profile.portfolio.length > 0 ? (
+          <section aria-labelledby="recent-work-heading">
+            <SectionHeading
+              title="Recent work"
+              description="A few things this maker has actually made."
+            />
+            <span id="recent-work-heading" className="sr-only">
+              Recent work
+            </span>
+            <ProjectGallery items={profile.portfolio} makerName={profile.displayName} />
+          </section>
+        ) : null}
+
         {/* Machines */}
         {profile.machines.length > 0 ? (
           <section aria-labelledby="machines-heading">
@@ -265,6 +283,17 @@ export default async function ProfilePage({ params }: { params: Params }) {
             </Card>
           </div>
         </section>
+
+        {/* Reviews */}
+        <ReviewsSection
+          profile={{
+            id: profile.id,
+            slug: profile.slug,
+            displayName: profile.displayName,
+            userId: profile.userId,
+          }}
+          viewerId={viewer?.id ?? null}
+        />
       </div>
     </div>
   );
