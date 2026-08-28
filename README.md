@@ -79,6 +79,27 @@ npm run dev
 
 Visit http://localhost:3000.
 
+### Signing in without Google
+
+Google OAuth needs your own credentials (see below). Until they are configured,
+set `ENABLE_DEV_LOGIN="true"` and the sign-in page offers an email-only
+development login — type any address and you are signed in. This provider is
+hard-disabled whenever `NODE_ENV=production`.
+
+The seed data ships with these accounts:
+
+| Email | Who they are |
+| --- | --- |
+| `ada@example.com` | Individual maker — 5 printers, materials, a gallery, reviews and a request waiting in the queue |
+| `makerspace@cedarparklibrary.example` | Public library makerspace — access rules, hours, availability slots |
+| `hello@bramblestreet.example` | Member-run hackerspace — CNC and laser |
+| `marcus@example.com` | Laser engraver, local pickup only |
+| `jamie@example.com` | Customer with an existing conversation |
+| `dev@example.com` | Customer who sent the fully specified PETG request |
+
+`demo-files/` contains a sample STL and SVG you can drop straight into the
+request builder to try the upload flow.
+
 ### Environment variables
 
 | Variable | Purpose |
