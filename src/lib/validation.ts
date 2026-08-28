@@ -1,6 +1,15 @@
 import { z } from "zod";
 
 import {
+  BED_ADHESION_TYPES,
+  INFILL_PATTERNS,
+  LASER_OPERATIONS,
+  MAX_FILES_PER_REQUEST,
+  PROCESSES,
+  SUPPORT_TYPES,
+  maxLayerHeightFor,
+} from "@/lib/print-specs";
+import {
   ACCOUNT_TYPES,
   FULFILLMENT_OPTIONS,
   LIMITS,
@@ -438,5 +447,207 @@ export const reviewResponseSchema = z
       .string()
       .transform(sanitizeText)
       .pipe(z.string().min(1, "Write a reply before posting.").max(LIMITS.reviewBody)),
+  })
+  .strict();
+
+// ---------------------------------------------------------------------------
+// Fabrication specifications
+// ---------------------------------------------------------------------------
+
+const optionalPositive = (max: number) =>
+  z.preprocess(
+    (value) => (value === "" || value === null || value === undefined ? undefined : value),
+    z.coerce.number().min(0).max(max).optional(),
+  );
+
+export const fdmSpecSchema = z
+  .object({
+    process: z.literal("FDM"),
+    qualityPreset: optionalTrimmed(20),
+    layerHeightMm: z.coerce.number().min(0.04).max(1.2),
+    nozzleMm: z.coerce.number().min(0.1).max(2),
+    infillPercent: z.coerce.number().int().min(0).max(100),
+    infillPattern: z.enum(INFILL_PATTERNS).default("GRID"),
+    wallCount: z.coerce.number().int().min(1).max(20),
+    topBottomLayers: z.coerce.number().int().min(1).max(30),
+    supportType: z.enum(SUPPORT_TYPES).default("NONE"),
+    supportOverhangDeg: z.preprocess(
+      (value) => (value === "" || value === null || value === undefined ? undefined : value),
+      z.coerce.number().int().min(0).max(90).optional(),
+    ),
+    bedAdhesion: z.enum(BED_ADHESION_TYPES).default("SKIRT"),
+    nozzleTempC: optionalPositive(500),
+    bedTempC: optionalPositive(200),
+    ironing: checkbox,
+    watertight: checkbox,
+  })
+  .strict()
+  // A nozzle cannot reliably extrude a layer taller than ~80% of its diameter.
+  .refine((data) => data.layerHeightMm <= maxLayerHeightFor(data.nozzleMm), {
+    message:
+      "Layer height must be at most 80% of the nozzle diameter, or the layers will not bond.",
+    path: ["layerHeightMm"],
+  });
+
+export const resinSpecSchema = z
+  .object({
+    process: z.literal("RESIN"),
+    layerHeightMm: z.coerce.number().min(0.01).max(0.2),
+    exposureSeconds: optionalPositive(60),
+    bottomExposureSeconds: optionalPositive(180),
+    bottomLayers: z.preprocess(
+      (value) => (value === "" || value === null || value === undefined ? undefined : value),
+      z.coerce.number().int().min(1).max(30).optional(),
+    ),
+    antiAliasing: z.preprocess(
+      (value) => (value === "" || value === null || value === undefined ? undefined : value),
+      z.coerce.number().int().min(1).max(16).optional(),
+    ),
+    hollow: checkbox,
+    hollowWallMm: optionalPositive(10),
+    drainHoles: checkbox,
+    supportsRequired: checkbox,
+    postCure: checkbox,
+  })
+  .strict()
+  .refine((data) => !data.hollow || (data.hollowWallMm ?? 0) >= 1, {
+    message: "Hollowed parts need a wall of at least 1 mm or they will collapse.",
+    path: ["hollowWallMm"],
+  });
+
+export const laserSpecSchema = z
+  .object({
+    process: z.enum(["LASER_CUT", "LASER_ENGRAVE"]),
+    operation: z.enum(LASER_OPERATIONS).default("CUT"),
+    materialThicknessMm: z.coerce.number().min(0.05).max(50),
+    passes: z.coerce.number().int().min(1).max(10).default(1),
+    powerPercent: optionalPositive(100),
+    speedMmS: optionalPositive(1000),
+    frequencyHz: optionalPositive(100000),
+    engraveDpi: z.preprocess(
+      (value) => (value === "" || value === null || value === undefined ? undefined : value),
+      z.coerce.number().int().min(50).max(2000).optional(),
+    ),
+    kerfCompensationMm: optionalPositive(2),
+    airAssist: checkbox,
+    focusOffsetMm: z.preprocess(
+      (value) => (value === "" || value === null || value === undefined ? undefined : value),
+      z.coerce.number().min(-20).max(20).optional(),
+    ),
+    materialSuppliedByCustomer: checkbox,
+  })
+  .strict();
+
+export const cncSpecSchema = z
+  .object({
+    process: z.literal("CNC"),
+    stockMaterial: trimmed(60),
+    stockThicknessMm: z.coerce.number().min(0.1).max(500),
+    bitDiameterMm: z.coerce.number().min(0.1).max(50),
+    spindleRpm: z.preprocess(
+      (value) => (value === "" || value === null || value === undefined ? undefined : value),
+      z.coerce.number().int().min(1000).max(60000).optional(),
+    ),
+    feedRateMmMin: optionalPositive(20000),
+    depthPerPassMm: optionalPositive(50),
+    stepoverPercent: optionalPositive(100),
+    tabs: checkbox,
+    toleranceMm: optionalPositive(10),
+  })
+  .strict();
+
+export const otherSpecSchema = z
+  .object({
+    process: z.literal("OTHER"),
+    details: z
+      .string()
+      .transform(sanitizeText)
+      .pipe(z.string().min(1, "Describe what you need.").max(2000)),
+  })
+  .strict();
+
+export const specsSchema = z.discriminatedUnion("process", [
+  fdmSpecSchema,
+  resinSpecSchema,
+  laserSpecSchema,
+  cncSpecSchema,
+  otherSpecSchema,
+]);
+
+export type Specs = z.infer<typeof specsSchema>;
+
+/** Safely parses the JSON blob stored on a request back into typed specs. */
+export function parseStoredSpecs(raw: string | null | undefined): Specs | null {
+  if (!raw) return null;
+  try {
+    const parsed = specsSchema.safeParse(JSON.parse(raw));
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
+
+const dimension = z.preprocess(
+  (value) => (value === "" || value === null || value === undefined ? undefined : value),
+  z.coerce.number().min(0.1).max(10000).optional(),
+);
+
+export const detailedRequestSchema = z
+  .object({
+    profileSlug: z
+      .string()
+      .transform((value) => sanitizeText(value).toLowerCase())
+      .pipe(z.string().min(1).max(LIMITS.slug)),
+    title: trimmed(120),
+    description: trimmed(4000),
+    // Absent on the lightweight "quick request" path, which predates the
+    // detailed spec builder.
+    process: z.enum(PROCESSES).default("OTHER"),
+    machineId: optionalTrimmed(40),
+    materialId: optionalTrimmed(40),
+    materialType: optionalTrimmed(60),
+    materialColor: optionalTrimmed(60),
+    quantity: z.coerce.number().int().min(1).max(10_000).default(1),
+    fulfillment: z.enum(FULFILLMENT_OPTIONS).default("PICKUP"),
+    budget: z.preprocess(
+      (value) => (value === "" || value === null || value === undefined ? undefined : value),
+      z.coerce.number().min(0).max(1_000_000).optional(),
+    ),
+    deadline: z.preprocess((value) => {
+      if (value === null || value === undefined || value === "") return undefined;
+      const parsed = value instanceof Date ? value : new Date(sanitizeText(String(value)));
+      return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+    }, z.date().optional()),
+    dimensionsX: dimension,
+    dimensionsY: dimension,
+    dimensionsZ: dimension,
+    // External link, kept for people who host files elsewhere.
+    fileUrl: safeUrl,
+    fileIds: z.array(z.string().max(40)).max(MAX_FILES_PER_REQUEST).default([]),
+    specs: specsSchema.optional(),
+  })
+  .strict()
+  // The spec block must describe the process the request is for.
+  .refine((data) => !data.specs || data.specs.process === data.process, {
+    message: "The specification does not match the selected process.",
+    path: ["specs"],
+  });
+
+export type DetailedRequestInput = z.infer<typeof detailedRequestSchema>;
+
+export const requestDecisionSchema = z
+  .object({
+    requestId: trimmed(40),
+    decision: z.enum(["ACCEPTED", "DECLINED", "COMPLETED", "CANCELLED"]),
+    message: optionalTrimmed(LIMITS.messageBody),
+    declineReason: optionalTrimmed(300),
+    quotedPrice: z.preprocess(
+      (value) => (value === "" || value === null || value === undefined ? undefined : value),
+      z.coerce.number().min(0).max(1_000_000).optional(),
+    ),
+    quotedLeadDays: z.preprocess(
+      (value) => (value === "" || value === null || value === undefined ? undefined : value),
+      z.coerce.number().int().min(0).max(365).optional(),
+    ),
   })
   .strict();

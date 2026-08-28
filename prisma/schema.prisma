@@ -36,6 +36,7 @@ model User {
   conversations Conversation[] @relation("ConversationRequester")
   bookedSlots   AvailabilitySlot[]
   reviews       Review[]
+  uploads       RequestFile[]
 }
 
 model Account {
@@ -299,14 +300,64 @@ model PrintRequest {
   // "OPEN" | "ACCEPTED" | "DECLINED" | "COMPLETED" | "CANCELLED"
   status      String    @default("OPEN")
 
+  // Process in src/lib/print-specs.ts: FDM | RESIN | LASER_CUT | ...
+  process       String  @default("FDM")
+  // Generic material choice (e.g. "PETG"), independent of the maker's stock.
+  materialType  String?
+  materialColor String?
+  /**
+   * Process-specific settings as JSON, validated on write by the discriminated
+   * union in src/lib/validation.ts. Stored as text so the schema stays portable
+   * and new settings can be added without a migration.
+   */
+  specs         String?
+  // Longest-side part dimensions in mm, used for build-volume checks.
+  dimensionsX   Float?
+  dimensionsY   Float?
+  dimensionsZ   Float?
+
+  // Maker's response
+  declineReason    String?
+  quotedPriceCents Int?
+  quotedLeadDays   Int?
+  respondedAt      DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  machine      Machine?     @relation(fields: [machineId], references: [id], onDelete: SetNull)
-  material     Material?    @relation(fields: [materialId], references: [id], onDelete: SetNull)
+  conversation Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  machine      Machine?      @relation(fields: [machineId], references: [id], onDelete: SetNull)
+  material     Material?     @relation(fields: [materialId], references: [id], onDelete: SetNull)
+  files        RequestFile[]
 
   @@index([status])
+  @@index([process])
+}
+
+/**
+ * An uploaded design file. Files are created unattached when the customer picks
+ * them, then linked to a request on submit, so uploads work before the request
+ * exists. The bytes live outside the database under UPLOAD_DIR.
+ */
+model RequestFile {
+  id         String  @id @default(cuid())
+  uploaderId String
+  requestId  String?
+
+  // Original name, sanitised for display only — never used as a path.
+  filename   String
+  // Server-generated relative path on disk.
+  storageKey String  @unique
+  mimeType   String
+  sizeBytes  Int
+
+  createdAt DateTime @default(now())
+
+  uploader User          @relation(fields: [uploaderId], references: [id], onDelete: Cascade)
+  request  PrintRequest? @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([uploaderId, requestId])
+  @@index([requestId])
 }
 
 // ---------------------------------------------------------------------------
