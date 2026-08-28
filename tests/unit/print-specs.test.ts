@@ -15,7 +15,8 @@ import {
   presetById,
 } from "@/lib/print-specs";
 import { fdmSpecSchema, laserSpecSchema, resinSpecSchema, specsSchema } from "@/lib/validation";
-import { sanitizeFilename, extensionOf, formatBytes } from "@/lib/services/uploads";
+import { sanitizeFilename, extensionOf } from "@/lib/services/uploads";
+import { formatBytes } from "@/lib/format";
 
 describe("build volume parsing", () => {
   it.each([

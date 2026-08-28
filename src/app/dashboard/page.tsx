@@ -9,6 +9,7 @@ import {
   listOperatingHours,
 } from "@/lib/services/inventory";
 import { listConversations, unreadMessageCount } from "@/lib/services/messaging";
+import { countPendingRequests } from "@/lib/services/requests";
 import { formatDateTime, formatRelative, initials } from "@/lib/format";
 import { PROFILE_TYPE_LABELS, type ProfileType } from "@/lib/constants";
 import { Badge, Button, buttonClass, Card, EmptyState, SectionHeading } from "@/components/ui";
@@ -41,14 +42,16 @@ export default async function DashboardOverviewPage() {
     );
   }
 
-  const [machines, materials, hours, slots, unread, conversations] = await Promise.all([
-    listMachines(profile.id),
-    listMaterials(profile.id),
-    listOperatingHours(profile.id),
-    listAvailability(profile.id, { from: new Date() }),
-    unreadMessageCount(user.id),
-    listConversations(user.id),
-  ]);
+  const [machines, materials, hours, slots, unread, conversations, pendingRequests] =
+    await Promise.all([
+      listMachines(profile.id),
+      listMaterials(profile.id),
+      listOperatingHours(profile.id),
+      listAvailability(profile.id, { from: new Date() }),
+      unreadMessageCount(user.id),
+      listConversations(user.id),
+      countPendingRequests(user.id),
+    ]);
 
   const openUpcomingSlots = slots.filter((slot) => slot.status === "OPEN").length;
   const projectCount = profile.portfolio.length;
@@ -65,6 +68,7 @@ export default async function DashboardOverviewPage() {
   const completed = checklist.filter((item) => item.done).length;
 
   const stats = [
+    { label: "Open requests", value: pendingRequests, href: "/dashboard/requests" },
     { label: "Machines", value: machines.length, href: "/dashboard/machines" },
     { label: "Materials", value: materials.length, href: "/dashboard/materials" },
     { label: "Projects", value: projectCount, href: "/dashboard/gallery" },

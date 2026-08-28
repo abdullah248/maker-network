@@ -7,12 +7,12 @@ import { getPublicProfileBySlug } from "@/lib/services/profiles";
 import { formatLocation } from "@/lib/format";
 import { Alert, Badge, buttonClass, Card, SectionHeading } from "@/components/ui";
 import { Avatar } from "@/components/messaging/avatar";
-import { RequestForm } from "@/components/messaging/request-form";
+import { RequestBuilder } from "@/components/requests/request-builder";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Contact a maker",
+  title: "Request a fabrication",
 };
 
 export default async function NewRequestPage({
@@ -37,7 +37,7 @@ export default async function NewRequestPage({
     profile.requiresAppointment || profile.requiresMembership || profile.requiresLibraryCard;
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
       <Link
         href={`/p/${profile.slug}`}
         className="mb-4 inline-flex items-center gap-1 text-sm font-medium text-ink-muted hover:text-ink"
@@ -47,8 +47,8 @@ export default async function NewRequestPage({
 
       <SectionHeading
         eyebrow="Get in touch"
-        title={`Contact ${profile.displayName}`}
-        description="Send a structured print request or a quick message to start a conversation."
+        title={`Request a fabrication from ${profile.displayName}`}
+        description="Upload your design, choose a process and material, dial in the settings, and send a full spec sheet — or just start a conversation."
       />
 
       <Card className="mb-6 flex flex-wrap items-center gap-4">
@@ -85,26 +85,30 @@ export default async function NewRequestPage({
             </Alert>
           ) : null}
           <div className={paused ? "mt-6" : undefined}>
-            <RequestForm
+            <RequestBuilder
               profileSlug={profile.slug}
               makerName={profile.displayName}
               offersShipping={profile.offersShipping}
               offersLocalPickup={profile.offersLocalPickup}
               disabled={paused}
-              machines={profile.machines
-                .filter((machine) => machine.isOperational)
-                .map((machine) => ({
-                  id: machine.id,
-                  make: machine.make,
-                  model: machine.model,
-                  category: machine.category,
-                }))}
+              machines={profile.machines.map((machine) => ({
+                id: machine.id,
+                category: machine.category,
+                make: machine.make,
+                model: machine.model,
+                buildVolume: machine.buildVolume,
+                isOperational: machine.isOperational,
+              }))}
               materials={profile.materials.map((material) => ({
                 id: material.id,
+                category: material.category,
                 name: material.name,
                 unit: material.unit,
                 pricePerUnit: material.pricePerUnit,
                 currency: material.currency,
+                colors: material.colors,
+                inStock: material.inStock,
+                canCustomOrder: material.canCustomOrder,
               }))}
             />
           </div>

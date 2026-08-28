@@ -22,7 +22,7 @@ test.describe("customer request journey", () => {
       .getByLabel(/description|details/i)
       .first()
       .fill("A small bracket, 40 x 20 x 5 mm, black PLA please.");
-    await page.getByRole("button", { name: /send print request/i }).first().click();
+    await page.getByRole("button", { name: /send fabrication request/i }).first().click();
 
     await page.waitForURL(/\/messages\//, { timeout: 30_000 });
     await expect(page.getByText(subject).first()).toBeVisible();
@@ -77,7 +77,7 @@ test.describe("customer request journey", () => {
       .getByLabel(/description|details/i)
       .first()
       .fill('<img src=x onerror="window.__xss=true">');
-    await page.getByRole("button", { name: /send print request/i }).first().click();
+    await page.getByRole("button", { name: /send fabrication request/i }).first().click();
     await page.waitForURL(/\/messages\//, { timeout: 30_000 });
 
     // The payload is visible as literal text and never executed.

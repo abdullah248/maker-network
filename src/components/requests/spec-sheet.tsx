@@ -15,7 +15,7 @@ import {
   type SupportType,
 } from "@/lib/print-specs";
 import { parseStoredSpecs, type Specs } from "@/lib/validation";
-import { formatBytes } from "@/lib/services/uploads";
+import { formatBytes } from "@/lib/format";
 
 export type SpecSheetRequest = {
   id: string;

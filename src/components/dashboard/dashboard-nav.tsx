@@ -13,6 +13,7 @@ type NavItem = {
 
 const PRIMARY: NavItem[] = [
   { href: "/dashboard", label: "Overview" },
+  { href: "/dashboard/requests", label: "Requests" },
   { href: "/dashboard/profile", label: "Public profile" },
   { href: "/dashboard/machines", label: "Machines" },
   { href: "/dashboard/materials", label: "Materials" },

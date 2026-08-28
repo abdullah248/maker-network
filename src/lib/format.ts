@@ -112,3 +112,11 @@ export function parseColorList(colors?: string | null): string[] {
     .filter(Boolean)
     .slice(0, 30);
 }
+
+/** Human-readable file size. Lives here so client components can use it
+ *  without pulling in the Node-only upload service. */
+export function formatBytes(size: number): string {
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}

@@ -45,8 +45,15 @@ const THREAD_INCLUDE = {
   },
   request: {
     include: {
-      machine: { select: { id: true, make: true, model: true } },
-      material: { select: { id: true, name: true, unit: true, pricePerUnit: true } },
+      machine: { select: { id: true, make: true, model: true, buildVolume: true } },
+      material: {
+        select: { id: true, name: true, unit: true, pricePerUnit: true, currency: true },
+      },
+      // Both participants need the attached design files in the thread.
+      files: {
+        select: { id: true, filename: true, sizeBytes: true, mimeType: true },
+        orderBy: { createdAt: "asc" },
+      },
     },
   },
 } satisfies Prisma.ConversationInclude;

@@ -28,7 +28,7 @@ export const UPLOAD_ROOT = path.resolve(
 export function sanitizeFilename(raw: string): string {
   const base = raw.split(/[/\\]/).pop() ?? "file";
   const cleaned = base
-    // eslint-disable-next-line no-control-regex
+     
     .replace(/[\u0000-\u001f\u007f]/g, "")
     .replace(/[^A-Za-z0-9._ -]/g, "_")
     .replace(/^\.+/, "")
@@ -202,10 +202,4 @@ export async function attachFilesToRequest(
 
 export function checksum(bytes: Buffer | Uint8Array): string {
   return createHash("sha256").update(bytes).digest("hex");
-}
-
-export function formatBytes(size: number): string {
-  if (size < 1024) return `${size} B`;
-  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
-  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 }

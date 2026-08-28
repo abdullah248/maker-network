@@ -1,4 +1,8 @@
  
+import { randomUUID } from "node:crypto";
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
+
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
@@ -22,6 +26,7 @@ async function main() {
 
   // Clear demo rows so the seed is idempotent.
   await prisma.review.deleteMany();
+  await prisma.requestFile.deleteMany();
   await prisma.portfolioItem.deleteMany();
   await prisma.message.deleteMany();
   await prisma.printRequest.deleteMany();
@@ -507,8 +512,104 @@ async function main() {
     });
   }
 
+  // ---------------------------------------------------------------------
+  // A fully specified request waiting in Ada's queue
+  // ---------------------------------------------------------------------
+
+  const specRequester = await prisma.user.create({
+    data: { name: "Dev Kapoor", email: "dev@example.com", accountType: "CUSTOMER", onboardedAt: new Date() },
+  });
+
+  const adaX1c = await prisma.machine.findFirstOrThrow({
+    where: { profileId: ada.id, model: "X1 Carbon" },
+  });
+  const adaPetg = await prisma.material.findFirstOrThrow({
+    where: { profileId: ada.id, name: "PETG" },
+  });
+
+  const specConversation = await prisma.conversation.create({
+    data: {
+      requesterId: specRequester.id,
+      providerProfileId: ada.id,
+      subject: "Quadcopter arm — PETG, high infill",
+      lastMessageAt: new Date(),
+      messages: {
+        create: [
+          {
+            senderId: specRequester.id,
+            body: [
+              "Replacement arm for a 5-inch quad. It takes a real beating on landings, so I've asked for heavy walls and dense infill.",
+              "",
+              "Process: FDM 3D printing (filament)",
+              "Material: PETG (Black)",
+              "Quantity: 4",
+              "Fulfilment: Shipping",
+              "Attached 1 file.",
+            ].join("\n"),
+          },
+        ],
+      },
+      request: {
+        create: {
+          title: "Quadcopter arm — PETG, high infill",
+          description:
+            "Replacement arm for a 5-inch quad. Needs to survive hard landings, so please prioritise strength over finish.",
+          process: "FDM",
+          machineId: adaX1c.id,
+          materialId: adaPetg.id,
+          materialType: "PETG",
+          materialColor: "Black",
+          quantity: 4,
+          fulfillment: "SHIPPING",
+          budgetCents: 4000,
+          deadline: daysFromNow(12, 12),
+          dimensionsX: 130,
+          dimensionsY: 40,
+          dimensionsZ: 12,
+          status: "OPEN",
+          specs: JSON.stringify({
+            process: "FDM",
+            qualityPreset: "STRONG",
+            layerHeightMm: 0.2,
+            nozzleMm: 0.4,
+            infillPercent: 55,
+            infillPattern: "GYROID",
+            wallCount: 5,
+            topBottomLayers: 6,
+            supportType: "NONE",
+            bedAdhesion: "BRIM",
+            nozzleTempC: 240,
+            bedTempC: 80,
+            ironing: false,
+            watertight: false,
+          }),
+        },
+      },
+    },
+    include: { request: true },
+  });
+
+  // Write a small placeholder so the download link resolves in the demo.
+  const uploadRoot = path.resolve(process.env.UPLOAD_DIR ?? path.join(process.cwd(), ".uploads"));
+  const storageKey = path.join(specRequester.id, `${randomUUID()}.stl`);
+  const absolute = path.join(uploadRoot, storageKey);
+  await mkdir(path.dirname(absolute), { recursive: true });
+  const placeholder = "solid quad-arm\n  facet normal 0 0 0\n endsolid quad-arm\n";
+  await writeFile(absolute, placeholder);
+
+  await prisma.requestFile.create({
+    data: {
+      uploaderId: specRequester.id,
+      requestId: specConversation.request!.id,
+      filename: "quad-arm-v3.stl",
+      storageKey,
+      mimeType: "model/stl",
+      sizeBytes: Buffer.byteLength(placeholder),
+    },
+  });
+
   console.log(
-    `Seed complete: ${await prisma.profile.count()} profiles, ${await prisma.machine.count()} machines, ${await prisma.material.count()} materials, ${await prisma.portfolioItem.count()} projects, ${await prisma.review.count()} reviews, conversation ${conversation.id}.`,
+    `Seed complete: ${await prisma.profile.count()} profiles, ${await prisma.machine.count()} machines, ${await prisma.material.count()} materials, ${await prisma.portfolioItem.count()} projects, ${await prisma.review.count()} reviews, ${await prisma.printRequest.count()} requests, conversation ${conversation.id}.`,
   );
 }
 

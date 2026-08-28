@@ -10,6 +10,7 @@ import { Badge, Card } from "@/components/ui";
 import { Avatar } from "@/components/messaging/avatar";
 import { MessageThread } from "@/components/messaging/message-thread";
 import { RequestActions } from "@/components/messaging/request-actions";
+import { RequestSpecSheet } from "@/components/requests/spec-sheet";
 import {
   isRequestClosed,
   RequestStatusBadge,
@@ -61,6 +62,7 @@ export default async function ConversationPage({
 
   const request = conversation.request;
   const requestClosed = request ? isRequestClosed(request.status) : false;
+  const specSheetRequest = request ?? null;
 
   const initialMessages = conversation.messages.map((message) => ({
     id: message.id,
@@ -106,6 +108,7 @@ export default async function ConversationPage({
 
         <aside className="space-y-4">
           {request ? (
+            <>
             <Card className="space-y-4">
               <div className="flex items-center justify-between gap-2">
                 <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-muted">
@@ -158,6 +161,8 @@ export default async function ConversationPage({
                 <RequestActions requestId={request.id} role={role} />
               )}
             </Card>
+            {specSheetRequest ? <RequestSpecSheet request={specSheetRequest} /> : null}
+            </>
           ) : (
             <Card>
               <h2 className="text-sm font-semibold text-ink">Direct message</h2>
