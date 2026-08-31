@@ -1,0 +1,423 @@
+// Maker Network data model.
+//
+// Provider = "sqlite" keeps local dev + CI dependency-free. The schema deliberately
+// avoids SQLite-only constructs (no native enums, no scalar lists) so the same models
+// can be pointed at PostgreSQL by swapping the datasource block.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Auth.js models
+// ---------------------------------------------------------------------------
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  // "CUSTOMER" | "MAKERSPACE" | "INDIVIDUAL" -- see AccountType in src/lib/constants.ts
+  accountType   String    @default("CUSTOMER")
+  onboardedAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+  profile       Profile?
+  sentMessages  Message[]
+  conversations Conversation[] @relation("ConversationRequester")
+  bookedSlots   AvailabilitySlot[]
+  reviews       Review[]
+  uploads       RequestFile[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ---------------------------------------------------------------------------
+// Provider profiles
+// ---------------------------------------------------------------------------
+
+model Profile {
+  id          String  @id @default(cuid())
+  userId      String  @unique
+  // "MAKERSPACE" | "INDIVIDUAL"
+  type        String
+  slug        String  @unique
+  displayName String
+  headline    String?
+  bio         String?
+  avatarUrl   String?
+
+  // General location: city-level only, never a street address.
+  city        String
+  region      String?
+  country     String  @default("US")
+  postalCode  String?
+  latitude    Float?
+  longitude   Float?
+
+  websiteUrl   String?
+  contactEmail String?
+  phone        String?
+
+  // Makerspace access rules
+  requiresAppointment Boolean @default(false)
+  requiresMembership  Boolean @default(false)
+  requiresLibraryCard Boolean @default(false)
+  membershipDetails   String?
+  accessNotes         String?
+
+  // Individual maker fulfilment
+  offersShipping          Boolean @default(false)
+  offersLocalPickup       Boolean @default(true)
+  canCustomOrderMaterials Boolean @default(false)
+  customOrderNotes        String?
+
+  acceptingRequests Boolean  @default(true)
+  published         Boolean  @default(false)
+
+  // Denormalised review aggregates so the directory can sort and filter
+  // without a join. Recomputed inside the review write transaction.
+  ratingAverage Float @default(0)
+  ratingCount   Int   @default(0)
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user           User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  machines       Machine[]
+  materials      Material[]
+  operatingHours OperatingHours[]
+  availability   AvailabilitySlot[]
+  portfolio      PortfolioItem[]
+  reviews        Review[]
+  conversations  Conversation[]     @relation("ConversationProvider")
+
+  @@index([type, published])
+  @@index([city])
+  @@index([ratingAverage])
+}
+
+model Machine {
+  id        String  @id @default(cuid())
+  profileId String
+  // MachineCategory in src/lib/constants.ts
+  category  String
+  make      String
+  model     String
+  isCustom  Boolean @default(false)
+  nickname  String?
+
+  buildVolume   String?
+  quantity      Int     @default(1)
+  hourlyRate    Float?
+  perJobFee     Float?
+  notes         String?
+  isOperational Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  profile      Profile            @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  availability AvailabilitySlot[]
+  requests     PrintRequest[]
+  portfolio    PortfolioItem[]
+
+  @@index([profileId])
+  @@index([category])
+}
+
+model Material {
+  id        String  @id @default(cuid())
+  profileId String
+  // MaterialCategory in src/lib/constants.ts
+  category  String
+  name      String
+  brand     String?
+
+  // Comma-separated colour list; kept as text so the schema stays portable.
+  colors              String?
+  // Free-form technical specs (diameter, thickness, density, tolerances...).
+  specs               String?
+  // MaterialUnit in src/lib/constants.ts
+  unit                String  @default("KG")
+  pricePerUnit        Float   @default(0)
+  currency            String  @default("USD")
+  stockQuantity       Int?
+  inStock             Boolean @default(true)
+  canCustomOrder      Boolean @default(false)
+  customOrderLeadDays Int?
+  notes               String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  profile  Profile        @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  requests PrintRequest[]
+
+  @@index([profileId])
+  @@index([category])
+}
+
+model OperatingHours {
+  id        String  @id @default(cuid())
+  profileId String
+  // 0 = Sunday ... 6 = Saturday
+  dayOfWeek Int
+  // Minutes since midnight, local to the profile.
+  opensAt   Int     @default(540)
+  closesAt  Int     @default(1020)
+  isClosed  Boolean @default(false)
+  note      String?
+
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, dayOfWeek])
+}
+
+model AvailabilitySlot {
+  id        String   @id @default(cuid())
+  profileId String
+  machineId String?
+  startsAt  DateTime
+  endsAt    DateTime
+  // "OPEN" | "BOOKED" | "BLOCKED"
+  status    String   @default("OPEN")
+  capacity  Int      @default(1)
+  note      String?
+
+  bookedByUserId String?
+  bookedAt       DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  profile  Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  machine  Machine? @relation(fields: [machineId], references: [id], onDelete: SetNull)
+  bookedBy User?    @relation(fields: [bookedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([profileId, startsAt])
+  @@index([machineId])
+}
+
+// ---------------------------------------------------------------------------
+// Messaging + requests
+// ---------------------------------------------------------------------------
+
+model Conversation {
+  id                String   @id @default(cuid())
+  requesterId       String
+  providerProfileId String
+  subject           String
+  lastMessageAt     DateTime @default(now())
+  requesterArchived Boolean  @default(false)
+  providerArchived  Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  requester       User          @relation("ConversationRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  providerProfile Profile       @relation("ConversationProvider", fields: [providerProfileId], references: [id], onDelete: Cascade)
+  messages        Message[]
+  request         PrintRequest?
+
+  @@index([requesterId, lastMessageAt])
+  @@index([providerProfileId, lastMessageAt])
+}
+
+model Message {
+  id             String    @id @default(cuid())
+  conversationId String
+  senderId       String
+  body           String
+  readAt         DateTime?
+  createdAt      DateTime  @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+}
+
+model PrintRequest {
+  id             String  @id @default(cuid())
+  conversationId String  @unique
+  machineId      String?
+  materialId     String?
+
+  title       String
+  description String
+  quantity    Int       @default(1)
+  // "SHIPPING" | "PICKUP" | "EITHER"
+  fulfillment String    @default("PICKUP")
+  budgetCents Int?
+  deadline    DateTime?
+  fileUrl     String?
+  // "OPEN" | "ACCEPTED" | "DECLINED" | "COMPLETED" | "CANCELLED"
+  status      String    @default("OPEN")
+
+  // Process in src/lib/print-specs.ts: FDM | RESIN | LASER_CUT | ...
+  process       String  @default("FDM")
+  // Generic material choice (e.g. "PETG"), independent of the maker's stock.
+  materialType  String?
+  materialColor String?
+  /**
+   * Process-specific settings as JSON, validated on write by the discriminated
+   * union in src/lib/validation.ts. Stored as text so the schema stays portable
+   * and new settings can be added without a migration.
+   */
+  specs         String?
+  // Longest-side part dimensions in mm, used for build-volume checks.
+  dimensionsX   Float?
+  dimensionsY   Float?
+  dimensionsZ   Float?
+
+  // Maker's response
+  declineReason    String?
+  quotedPriceCents Int?
+  quotedLeadDays   Int?
+  respondedAt      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  conversation Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  machine      Machine?      @relation(fields: [machineId], references: [id], onDelete: SetNull)
+  material     Material?     @relation(fields: [materialId], references: [id], onDelete: SetNull)
+  files        RequestFile[]
+
+  @@index([status])
+  @@index([process])
+}
+
+/**
+ * An uploaded design file. Files are created unattached when the customer picks
+ * them, then linked to a request on submit, so uploads work before the request
+ * exists. The bytes live outside the database under UPLOAD_DIR.
+ */
+model RequestFile {
+  id         String  @id @default(cuid())
+  uploaderId String
+  requestId  String?
+
+  // Original name, sanitised for display only — never used as a path.
+  filename   String
+  // Server-generated relative path on disk.
+  storageKey String  @unique
+  mimeType   String
+  sizeBytes  Int
+
+  createdAt DateTime @default(now())
+
+  uploader User          @relation(fields: [uploaderId], references: [id], onDelete: Cascade)
+  request  PrintRequest? @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([uploaderId, requestId])
+  @@index([requestId])
+}
+
+// ---------------------------------------------------------------------------
+// Project gallery + reviews
+// ---------------------------------------------------------------------------
+
+/** A photo of something the maker has actually produced. */
+model PortfolioItem {
+  id        String  @id @default(cuid())
+  profileId String
+  machineId String?
+
+  title       String
+  description String?
+  // Remote image URL. Uploads are not handled yet, so this is always an
+  // http(s) link validated by portfolioItemSchema.
+  imageUrl    String
+  altText     String?
+  materialUsed String?
+  featured    Boolean @default(false)
+  sortOrder   Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  profile Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  machine Machine? @relation(fields: [machineId], references: [id], onDelete: SetNull)
+
+  @@index([profileId, sortOrder])
+  @@index([profileId, featured])
+}
+
+/** A customer's rating and written feedback about a maker. */
+model Review {
+  id        String @id @default(cuid())
+  profileId String
+  authorId  String
+
+  // 1-5 inclusive, enforced by reviewSchema.
+  rating Int
+  title  String?
+  body   String
+
+  /**
+   * True when the author has a completed print request with this maker, which
+   * lets the UI mark the review as verified.
+   */
+  verified Boolean @default(false)
+
+  providerResponse    String?
+  providerRespondedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  author  User    @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  // One review per person per maker.
+  @@unique([profileId, authorId])
+  @@index([profileId, createdAt])
+  @@index([rating])
+}

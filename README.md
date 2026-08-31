@@ -1,0 +1,212 @@
+# Maker Network
+
+A directory and request platform that connects people who need something fabricated with the machines — and machine owners — who can make it.
+
+Three audiences share one product:
+
+| Who | What they do |
+| --- | --- |
+| **Makerspaces, libraries and organizations** | List machines open to the public, materials sold at cost, hours of operation, access rules (appointment / membership / library card), and an availability calendar people can book. |
+| **Individual makers** | List the printers and cutters they own (picked from a catalog of common machines or entered custom), materials they stock, whether they can custom-order material, their general location, and whether they ship or do local pickup only. |
+| **Customers** | Browse and filter maker profiles, view project galleries and reviews, send structured print requests, and message makers directly. |
+
+## Feature overview
+
+- **Google OAuth sign-in** via Auth.js v5, with a development-only credentials provider that is hard-disabled in production builds.
+- **Onboarding** that routes each account type to the right setup flow.
+- **Provider dashboard** — profile editor with live handle availability, machine catalog with custom entry, priced material inventory, weekly hours editor, availability calendar, project gallery and a reviews inbox.
+- **Public directory** with search plus filters for profile type, machine category, material category, city, shipping, availability and minimum rating.
+- **Public profiles** showing machines, priced materials, access requirements, weekly hours, a bookable availability calendar, a project gallery and customer reviews.
+- **Project gallery** — makers post photos of things they have actually made, optionally attributed to the machine and material used.
+- **Reviews** — 1-5 star ratings with written feedback, one review per customer per maker, a "verified project" badge when the reviewer completed a request, and a single public reply from the maker. Makers can respond to criticism but can never edit or delete it.
+- **Fabrication request builder** — upload design files (STL/3MF/STEP/SVG/DXF and friends), pick a process, choose a material, and dial in real machine settings. See "Specifying a job" below.
+- **Maker request queue** — a dedicated inbox where makers review the full specification and files, ask questions in chat, and accept with a quote, decline with a reason, or mark a job complete.
+- **Messaging and print requests** — every request opens a conversation, with unread counts, polling for new messages, and every status change recorded in the thread.
+
+## Specifying a job
+
+Customers do not just send a description — they send a spec sheet. The builder at
+`/requests/new?profile=<slug>` walks through files → process → material → part
+dimensions → machine settings → job details, and opens on whichever process the
+maker actually owns machines for.
+
+The settings offered depend on the process:
+
+| Process | Settings captured |
+| --- | --- |
+| **FDM** | Layer height, nozzle diameter, infill % and pattern, wall count, top/bottom layers, support type and overhang angle, bed adhesion, optional nozzle/bed temperature overrides, ironing, watertightness |
+| **Resin (SLA/MSLA)** | Layer height, normal and bottom exposure, bottom layers, anti-aliasing, hollowing with wall thickness, drain holes, supports, post-cure |
+| **Laser cut / engrave** | Operation, material thickness, passes, power %, speed, frequency, engrave DPI, kerf compensation, air assist, focus offset, who supplies the material |
+| **CNC** | Stock material and thickness, bit diameter, spindle rpm, feed rate, depth per pass, stepover, hold-down tabs, tolerance |
+
+Defaults and guidance in `src/lib/print-specs.ts` follow conventional slicer
+profiles and published machine guidance — filament temperature windows, Draft /
+Standard / Fine / Strong quality presets, and CO2 laser power/speed/kerf starting
+points per material. They are presented as *requested* settings; the maker always
+confirms before running a job.
+
+Two rules are enforced rather than suggested, because they describe physical
+limits:
+
+- **Layer height must be at most 80% of the nozzle diameter**, or the extruder
+  cannot push enough plastic to bond layers.
+- **A part must fit the selected machine's build volume**, allowing for rotation
+  on the bed. Build volumes are parsed out of the free-text field makers enter.
+
+The builder also surfaces safety information: filaments that need an enclosure,
+and the materials that must never go near a laser (PVC, polycarbonate, ABS sheet,
+fibreglass, chrome-tanned leather).
+
+## Stack
+
+- **Next.js 16** (App Router, React 19, server components by default)
+- **TypeScript** in strict mode
+- **Tailwind CSS v4** with a small hand-rolled component kit (`src/components/ui.tsx`)
+- **Prisma 6** against SQLite for local development and CI. The schema deliberately avoids SQLite-only constructs (no native enums, no scalar lists), so switching the `datasource` block to PostgreSQL is the only change needed for production.
+- **Auth.js v5** (`next-auth@5`) with the Prisma adapter
+- **Zod 4** for every piece of input validation
+- **Vitest** for unit, integration and adversarial tests; **Playwright** for end-to-end tests
+
+## Getting started
+
+```bash
+npm install
+cp .env.example .env      # then fill in the Google OAuth values
+npm run db:migrate        # create the SQLite database
+npm run db:seed           # load demo makerspaces, makers, projects and reviews
+npm run dev
+```
+
+Visit http://localhost:3000.
+
+### Signing in without Google
+
+Google OAuth needs your own credentials (see below). Until they are configured,
+set `ENABLE_DEV_LOGIN="true"` and the sign-in page offers an email-only
+development login — type any address and you are signed in. This provider is
+hard-disabled whenever `NODE_ENV=production`.
+
+The seed data ships with these accounts:
+
+| Email | Who they are |
+| --- | --- |
+| `ada@example.com` | Individual maker — 5 printers, materials, a gallery, reviews and a request waiting in the queue |
+| `makerspace@cedarparklibrary.example` | Public library makerspace — access rules, hours, availability slots |
+| `hello@bramblestreet.example` | Member-run hackerspace — CNC and laser |
+| `marcus@example.com` | Laser engraver, local pickup only |
+| `jamie@example.com` | Customer with an existing conversation |
+| `dev@example.com` | Customer who sent the fully specified PETG request |
+
+`demo-files/` contains a sample STL and SVG you can drop straight into the
+request builder to try the upload flow.
+
+### Environment variables
+
+| Variable | Purpose |
+| --- | --- |
+| `DATABASE_URL` | Prisma connection string, e.g. `file:./dev.db` |
+| `AUTH_SECRET` | Auth.js signing secret. Generate with `npx auth secret`. |
+| `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | Google OAuth client credentials. When unset, the sign-in page explains that Google is not configured instead of failing. |
+| `AUTH_TRUST_HOST` | Set to `true` when running behind a proxy. |
+| `ENABLE_DEV_LOGIN` | Enables the email-only test login. Ignored entirely when `NODE_ENV=production`. |
+
+To set up Google OAuth, create an OAuth 2.0 client in the Google Cloud console and add `http://localhost:3000/api/auth/callback/google` as an authorized redirect URI.
+
+## Scripts
+
+| Command | Description |
+| --- | --- |
+| `npm run dev` | Start the development server |
+| `npm run build` | Generate the Prisma client and build for production |
+| `npm run lint` | ESLint across the repo |
+| `npm run typecheck` | `tsc --noEmit` |
+| `npm run test` | Vitest unit, integration and security suites |
+| `npm run test:e2e` | Playwright end-to-end suite (boots its own seeded database and dev server) |
+| `npm run db:migrate` / `db:deploy` / `db:reset` / `db:seed` / `db:studio` | Prisma workflows |
+
+## Architecture
+
+```
+src/
+  app/
+    page.tsx browse/ p/[slug]/    public landing, directory and maker profiles
+    how-it-works/ safety/         informational pages
+    signin/ onboarding/           authentication and account-type selection
+    dashboard/                    provider-only: profile, machines, materials,
+                                  gallery, reviews, hours, availability
+    messages/                     inbox and conversation threads
+    requests/new/                 structured print request + direct message form
+    api/                          thin route handlers over the service layer
+  components/                     shared UI kit, public, dashboard and messaging
+  lib/
+    validation.ts                 every Zod schema in the app
+    services/                     all business logic and authorization
+    auth.ts db.ts                 Auth.js and Prisma singletons
+```
+
+**The service layer is the security boundary.** Route handlers and server actions do three things: resolve the caller's id from the session, parse the body, and delegate. Every mutating service re-derives the caller's profile from their session user id, so a `profileId` or `userId` supplied by a client is never trusted.
+
+## Security model
+
+The design decisions that the adversarial test suite locks in:
+
+- **Ownership is always re-derived server-side.** `requireOwnedProfile(userId)` looks the profile up by session user id; client-supplied ids are ignored. Cross-tenant writes to machines, materials, slots, gallery items and reviews are rejected.
+- **Conversations 404 rather than 403** for non-participants, so ids cannot be probed for existence.
+- **Strict schemas.** Input objects use `.strict()`, so mass-assignment attempts (`profileId`, `verified`, `providerResponse`, `status`) are rejected outright rather than silently dropped.
+- **URLs are protocol-checked.** Websites, file links and gallery images accept `http(s)` only — `javascript:`, `data:`, `vbscript:`, `file:` and protocol-relative URLs are rejected.
+- **No raw HTML rendering.** User content is escaped by React; `dangerouslySetInnerHTML` is not used anywhere.
+- **Third-party images are not proxied.** Gallery images render through a plain `<img>` rather than the Next image optimizer, so the server never fetches arbitrary user-supplied URLs.
+- **Open redirects are blocked.** `safeCallbackUrl` accepts only single-slash relative paths, rejecting `//host`, `/\host`, absolute URLs and control characters.
+- **Rate limiting** on message sends, and per-profile caps on gallery items.
+- **Uploaded files are never trusted.** Extensions are allow-listed, the storage
+  key is generated server-side (the client filename is only ever used for
+  display), the resolved path is checked to stay inside the upload root, and
+  downloads are served as `application/octet-stream` attachments with `nosniff`
+  and a locked-down CSP — so an SVG containing script can never execute on our
+  origin. Files are readable only by the uploader and the maker they were sent to,
+  and a miss returns 404 rather than 403.
+- **Reputation integrity.** Makers cannot review themselves, cannot edit or delete reviews of their shop, and one account can leave at most one review per maker. Rating aggregates are recomputed inside the same transaction as the review write.
+- **The test login cannot ship.** `devLoginEnabled()` returns false whenever `NODE_ENV === "production"`, regardless of environment configuration.
+
+## Testing
+
+```bash
+npm run test        # 417 unit, integration and adversarial tests
+npm run test:e2e    # 48 Playwright end-to-end tests
+```
+
+- `tests/unit` — validation schema behaviour
+- `tests/integration` — service layer against a real migrated SQLite database
+- `tests/security` — adversarial cases: IDOR, mass assignment, injection, prototype pollution, XSS payload handling, rate limits, race conditions, review manipulation, upload path traversal and file access control
+- `tests/e2e` — full journeys: provider onboarding through to being discoverable, customer request through to a two-sided conversation, gallery and review flows, and access-control probes
+
+Each Vitest worker copies a pre-migrated template database, so suites run in parallel without contending on SQLite. Playwright builds its own seeded database and boots a dev server (the production build intentionally cannot use the test login).
+
+## CI/CD
+
+`.github/workflows/ci.yml` runs on every pull request:
+
+| Job | What it checks |
+| --- | --- |
+| `quality` | lint, typecheck, unit + integration + security tests |
+| `build` | production build |
+| `e2e` | Playwright suite with cached browsers and an uploaded HTML report |
+| `security` | `npm audit` on production dependencies (dev advisories are informational) |
+| `migrations` | fails if `schema.prisma` has drifted from the committed migration history |
+
+Dependabot keeps dependencies current in grouped weekly PRs, and `.github/pull_request_template.md` includes a security checklist.
+
+## Documentation
+
+| Document | What it covers |
+| --- | --- |
+| [`docs/FEATURE_STATUS.md`](docs/FEATURE_STATUS.md) | Every feature, how finished it is, and what is missing |
+| [`docs/PRODUCTION_READINESS.md`](docs/PRODUCTION_READINESS.md) | What must change before deploying to production |
+| [`docs/ROADMAP.md`](docs/ROADMAP.md) | Suggestions for improving the product, ordered by value |
+
+## Production notes
+
+- Point the Prisma `datasource` at PostgreSQL and run `npm run db:deploy`. No model changes are required.
+- Design files are stored on local disk under `UPLOAD_DIR`. For a multi-instance deployment, move them to object storage and swap `storeUpload`/`getAccessibleFile` for signed URLs; the rest of the code already treats storage as an implementation detail. Gallery images are still referenced by URL.
+- Files staged but never attached to a request are kept indefinitely; a periodic sweep of `RequestFile` rows with a null `requestId` would be worth adding.
+- The message rate limit is database-backed and per-user; a multi-instance deployment would benefit from moving it to a shared cache.
