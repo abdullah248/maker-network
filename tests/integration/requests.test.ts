@@ -4,7 +4,14 @@ import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 
 import { prisma } from "@/lib/db";
-import { ForbiddenError, NotFoundError, UnauthorizedError, ValidationError } from "@/lib/errors";
+import {
+  ForbiddenError,
+  NotFoundError,
+  RateLimitError,
+  UnauthorizedError,
+  ValidationError,
+} from "@/lib/errors";
+import { LIMITS } from "@/lib/constants";
 import {
   countPendingRequests,
   createDetailedRequest,
@@ -202,6 +209,19 @@ describe("createDetailedRequest", () => {
     await expect(createDetailedRequest(null, baseRequest())).rejects.toBeInstanceOf(
       UnauthorizedError,
     );
+  });
+
+  it("rate limits a flood of requests", async () => {
+    await createProviderWithInventory({ slug: "spec-shop" });
+    const spammer = await createUser();
+
+    for (let index = 0; index < LIMITS.messageRateMax; index += 1) {
+      await createDetailedRequest(spammer.id, baseRequest({ title: `Spam ${index}` }));
+    }
+
+    await expect(
+      createDetailedRequest(spammer.id, baseRequest({ title: "One too many" })),
+    ).rejects.toBeInstanceOf(RateLimitError);
   });
 });
 

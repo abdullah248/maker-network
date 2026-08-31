@@ -16,6 +16,7 @@ import {
   requestDecisionSchema,
 } from "@/lib/validation";
 import { requireOwnedProfile, requireUserId } from "./authz";
+import { assertMessageRateLimit } from "./messaging";
 import { attachFilesToRequest } from "./uploads";
 
 const REQUEST_INCLUDE = {
@@ -126,6 +127,9 @@ export async function createDetailedRequest(userId: string | null | undefined, i
       );
     }
   }
+
+  // Requests create a message, so they draw on the same anti-spam budget.
+  await assertMessageRateLimit(requesterId);
 
   const now = new Date();
   const summary = buildSummary({

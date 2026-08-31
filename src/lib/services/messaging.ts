@@ -84,8 +84,12 @@ async function loadParticipantConversation(conversationId: string, userId: strin
   return { conversation, role: isRequester ? ("REQUESTER" as const) : ("PROVIDER" as const) };
 }
 
-/** Simple sliding-window rate limit backed by the messages table. */
-async function assertMessageRateLimit(userId: string) {
+/**
+ * Simple sliding-window rate limit backed by the messages table. Exported so
+ * every path that creates a message (including the fabrication request
+ * builder) shares the same budget.
+ */
+export async function assertMessageRateLimit(userId: string) {
   const since = new Date(Date.now() - LIMITS.messageRateWindowMs);
   const recent = await prisma.message.count({
     where: { senderId: userId, createdAt: { gte: since } },

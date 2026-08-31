@@ -196,6 +196,14 @@ Each Vitest worker copies a pre-migrated template database, so suites run in par
 
 Dependabot keeps dependencies current in grouped weekly PRs, and `.github/pull_request_template.md` includes a security checklist.
 
+## Documentation
+
+| Document | What it covers |
+| --- | --- |
+| [`docs/FEATURE_STATUS.md`](docs/FEATURE_STATUS.md) | Every feature, how finished it is, and what is missing |
+| [`docs/PRODUCTION_READINESS.md`](docs/PRODUCTION_READINESS.md) | What must change before deploying to production |
+| [`docs/ROADMAP.md`](docs/ROADMAP.md) | Suggestions for improving the product, ordered by value |
+
 ## Production notes
 
 - Point the Prisma `datasource` at PostgreSQL and run `npm run db:deploy`. No model changes are required.
